@@ -17,31 +17,63 @@ import {
 
 import MapView, {Marker, Callout} from 'react-native-maps'
 
+
+const LATITUDE_DELTA = 0.0922;
+const LONGITUDE_DELTA = 0.0922;
+
 export default class googleMapsTest extends Component {  
   constructor(){
     super()
     this.state = {
-      lat: null,
-      long: null,
-      latitudeDelta: 0.0922,
-      longitudeDelta: 0.0922,
+      region: {
+        latitude: null,
+        longitude: null,
+        latitudeDelta: null,
+        longitudeDelta: null
+      },
       places: null
     }
+    this.onRegionChange = this.onRegionChange.bind(this);
   }
   
   componentWillMount() {
     navigator.geolocation.getCurrentPosition(
       (position) => {
-        const lat = position.coords.latitude;
-        const long = position.coords.longitude;
-        this.setState({lat, long})
-        this.getPlaces()
+        this.setState({
+          region: {
+            latitude: position.coords.latitude,
+            longitude: position.coords.longitude,
+            latitudeDelta: LATITUDE_DELTA,
+            longitudeDelta: LONGITUDE_DELTA
+          }
+        });
+      },
+      (error) => alert(error.message),
+      {enableHighAccuracy: true, timeout: 20000, maximumAge: 1000}
+    );
+
+    this.watchID = navigator.geolocation.watchPosition((position) => {
+      const newRegion = {
+        latitude: position.coords.latitude,
+        longitude: position.coords.longitude,
+        latitudeDelta: LATITUDE_DELTA,
+        longitudeDelta: LONGITUDE_DELTA
       }
-    )
+
+      this.onRegionChange(newRegion);
+      this.getPlaces()
+    });
+  }
+  componentWillUnmount() {
+    navigator.geolocation.clearWatch(this.watchID);
+  }
+
+  onRegionChange(region) {
+    this.setState({ region });
   }
 
   getPlaces(){
-    const url = this.getUrlWithParameters(this.state.lat, this.state.long, 1500, 'food', 'AIzaSyCqbos4y9u3Wp5pxWvuC0Aovzy8L0K3x0k')
+    const url = this.getUrlWithParameters(this.state.region.latitude, this.state.region.longitude, 1500, 'food', 'AIzaSyCqbos4y9u3Wp5pxWvuC0Aovzy8L0K3x0k')
     fetch(url)
       .then((data) => data.json())
       .then((res) => {
@@ -76,23 +108,21 @@ export default class googleMapsTest extends Component {
       return `${url}${location}${typeData}${key}`;
   }
   render() {
+    console.log(this.state.region)
     console.log(this.state.latitudeDelta);
     return (
       <View style={styles.container}>
-        {this.state.lat ? <MapView 
+        {this.state.region.latitude ? <MapView 
           style={{flex: 1}}
           provider={MapView.PROVIDER_GOOGLE}
-          initialRegion={{
-            latitude: this.state.lat,
-            longitude: this.state.long,
-            latitudeDelta: this.state.latitudeDelta,
-            longitudeDelta: this.state.longitudeDelta
-          }}
+          region={this.state.region}
+          onRegionChange={this.onRegionChange}
+          showsPointsOfInterest
         >
         <Marker 
           coordinate={{
-            latitude: this.state.lat,
-            longitude: this.state.long,
+            latitude: this.state.region.latitude,
+            longitude: this.state.region.longitude,
           }}
         >
           <View>
